@@ -24,10 +24,7 @@ def predict_tip(trip: TripData):
     tip_prediction = model.predict(features)[0]
     return {"predicted_tip": tip_prediction}
     
-
 if __name__ == "__main__":
     import uvicorn
-    # Cloud Run automatically injects the PORT environment variable
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run("main:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
     
