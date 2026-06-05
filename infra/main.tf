@@ -128,12 +128,11 @@ resource "google_service_account_iam_member" "github_impersonation" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/leonardodicaterina/taxi-tips-mlops-dev"
 }
-# 12. Grant the Service Account the ability to impersonate itself for token creation
+# 12. Grant the GitHub Actions principal the ability to impersonate the Service Account
 resource "google_service_account_iam_member" "sa_token_creator" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "serviceAccount:${google_service_account.github_actions.email}"
-}
-output "workload_identity_provider_name" {
-  value = google_iam_workload_identity_pool_provider.github_provider.name
+  
+  # This is the crucial part: the member is the pool/provider, not the SA email
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/LeonardoDiCaterina/taxi-tips-mlops-dev"
 }
