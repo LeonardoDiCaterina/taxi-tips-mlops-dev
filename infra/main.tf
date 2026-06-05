@@ -107,14 +107,16 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
   workload_identity_pool_provider_id = "github-actions-provider"
   display_name                       = "GitHub Actions Provider"
 
+  # Updated mapping to ensure claims are correctly populated
   attribute_mapping = {
     "google.subject"       = "assertion.sub"
     "attribute.actor"      = "assertion.actor"
     "attribute.repository" = "assertion.repository"
+    "attribute.repository_owner" = "assertion.repository_owner"
   }
 
-  # THIS IS THE "WIDE OPEN" CONDITION
-  attribute_condition = "assertion.sub != ''"
+  # Use the attribute_owner for the condition to bypass complex path issues
+  attribute_condition = "assertion.repository_owner == 'LeonardoDiCaterina'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
