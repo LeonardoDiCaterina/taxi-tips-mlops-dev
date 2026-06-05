@@ -1,2 +1,23 @@
-infra/terraform.tfstate
-infra/.terraform/
+#Terraform plugins and modules
+
+*/.terraform/
+
+#Terraform state files (These belong in GCS, not GitHub!)
+
+*.tfstate
+*.tfstate.*
+
+#Crash log files
+
+crash.log
+crash.*.log
+
+#Ignore Mac system files
+
+.DS_Store
+
+#Ignore Python environments and cache (for our Cloud Run app later)
+
+__pycache__/
+*.pyc
+.env
