@@ -113,8 +113,8 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "attribute.repository" = "assertion.repository"
   }
 
-  # This regex is more resilient. Note the colon after assertion.
-  attribute_condition = "assertion.repository == 'leonardodicaterina/taxi-tips-mlops-dev'"
+  # REPLACE your current attribute_condition line with this:
+  attribute_condition = "assertion.repository_owner == 'leonardodicaterina'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
