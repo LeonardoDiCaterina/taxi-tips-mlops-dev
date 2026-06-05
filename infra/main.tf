@@ -101,38 +101,34 @@ resource "google_iam_workload_identity_pool" "github_pool" {
   display_name              = "GitHub Actions Pool"
   description               = "Identity pool for automated GitHub deployments"
 }
-# 10. Create the Workload Identity Provider (Trusting GitHub)
+# 10. Provider
 resource "google_iam_workload_identity_pool_provider" "github_provider" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
   workload_identity_pool_provider_id = "github-actions-provider"
-  display_name                       = "GitHub Actions Provider"
-
-  # Updated mapping to ensure claims are correctly populated
+  
   attribute_mapping = {
     "google.subject"       = "assertion.sub"
     "attribute.actor"      = "assertion.actor"
     "attribute.repository" = "assertion.repository"
-    "attribute.repository_owner" = "assertion.repository_owner"
   }
-
-  # Use the attribute_owner for the condition to bypass complex path issues
-  attribute_condition = "assertion.repository_owner == 'LeonardoDiCaterina'"
+  
+  # KEEP THIS WIDE OPEN during debug to rule out string mismatches
+  attribute_condition = "assertion.sub != ''"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
 }
+
 # 11. Allow the specific GitHub repository to impersonate the Service Account
 resource "google_service_account_iam_member" "github_impersonation" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/leonardodicaterina/taxi-tips-mlops-dev"
 }
-# 12. Grant the GitHub Actions principal the ability to impersonate the Service Account
+# 12. Token Creator (Ensure it uses the provider name correctly)
 resource "google_service_account_iam_member" "sa_token_creator" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.serviceAccountTokenCreator"
-  
-  # This is the crucial part: the member is the pool/provider, not the SA email
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/LeonardoDiCaterina/taxi-tips-mlops-dev"
 }
