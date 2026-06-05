@@ -101,7 +101,6 @@ resource "google_iam_workload_identity_pool" "github_pool" {
   display_name              = "GitHub Actions Pool"
   description               = "Identity pool for automated GitHub deployments"
 }
-
 # 10. Create the Workload Identity Provider (Trusting GitHub)
 resource "google_iam_workload_identity_pool_provider" "github_provider" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
@@ -114,14 +113,13 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "attribute.repository" = "assertion.repository"
   }
 
-  # Use a broader condition to verify if it's the repo name causing the issue
+  # Replace your existing attribute_condition with this one:
   attribute_condition = "assertion.repository_owner == 'leonardodicaterina'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
 }
-
 # 11. Allow the specific GitHub repository to impersonate the Service Account
 resource "google_service_account_iam_member" "github_impersonation" {
   service_account_id = google_service_account.github_actions.name
