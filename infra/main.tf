@@ -132,24 +132,16 @@ resource "google_service_account_iam_member" "sa_token_creator" {
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/LeonardoDiCaterina/taxi-tips-mlops-dev"
 }
-
-# 13. Grant Cloud Build Editor to the Service Account
-resource "google_project_iam_member" "sa_cloud_build_editor" {
+# 13, 14, 15 consolidated into one clean block
+resource "google_project_iam_member" "sa_permissions" {
+  for_each = toset([
+    "roles/cloudbuild.builds.editor",
+    "roles/storage.objectAdmin",
+    "roles/serviceusage.serviceUsageConsumer",
+    "roles/run.admin",
+    "roles/iam.serviceAccountUser"
+  ])
   project = "taxi-tips-mlops-dev"
-  role    = "roles/cloudbuild.builds.editor"
-  member  = "serviceAccount:${google_service_account.github_actions.email}"
-}
-
-# 14. Grant Storage Object Admin (to manage the build bucket)
-resource "google_project_iam_member" "sa_storage_admin" {
-  project = "taxi-tips-mlops-dev"
-  role    = "roles/storage.objectAdmin"
-  member  = "serviceAccount:${google_service_account.github_actions.email}"
-}
-
-# 15. Grant Service Usage Consumer role (Required to use APIs like Cloud Build)
-resource "google_project_iam_member" "sa_service_usage" {
-  project = "taxi-tips-mlops-dev"
-  role    = "roles/serviceusage.serviceUsageConsumer"
+  role    = each.key
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 }
