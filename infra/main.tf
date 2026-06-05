@@ -113,8 +113,8 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "attribute.repository" = "assertion.repository"
   }
 
-  # Use the exact lowercase repository string that GitHub asserts
-  attribute_condition = "assertion.repository == 'leonardodicaterina/taxi-tips-mlops-dev'"
+  # THIS IS THE "WIDE OPEN" CONDITION
+  attribute_condition = "assertion.sub != ''"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
