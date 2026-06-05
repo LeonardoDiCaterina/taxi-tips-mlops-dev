@@ -28,6 +28,7 @@ resource "google_artifact_registry_repository" "docker_repo" {
 }
 
 # 4. Deploy the FastAPI Cloud Run Service
+# Using ':latest' prevents "Image not found" errors during terraform apply
 resource "google_cloud_run_v2_service" "api_service" {
   name     = "${var.service_name}-${var.env}"
   location = var.region
@@ -35,14 +36,7 @@ resource "google_cloud_run_v2_service" "api_service" {
 
   template {
     containers {
-      # Updated to match the repository name and image name used in your deploy.yml
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/mlops-docker-repo/taxi-tips-api:${var.image_tag}"
-      
-      # FIX: Ensure Cloud Run listens on 8080
-      env {
-        name  = "PORT"
-        value = "8080"
-      }
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/mlops-docker-repo/taxi-tips-api:latest"
       
       resources {
         limits = {
@@ -70,7 +64,7 @@ output "api_url" {
   value = google_cloud_run_v2_service.api_service.uri
 }
 
-# 7-13. Identity and IAM Setup remains the same
+# 7-13. Identity and IAM Setup
 resource "google_service_account" "github_actions" {
   account_id   = "github-deployer-sa"
   display_name = "GitHub Actions Deployer"

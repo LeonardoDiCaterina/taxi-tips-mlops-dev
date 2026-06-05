@@ -25,6 +25,8 @@ def predict_tip(trip: TripData):
     return {"predicted_tip": tip_prediction}
     
 if __name__ == "__main__":
+    # Get the port from the environment, defaulting to 8080 if it's missing (local dev)
+    port = int(os.environ.get("PORT", 8080))
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
     
