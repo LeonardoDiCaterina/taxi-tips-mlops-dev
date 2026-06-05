@@ -113,8 +113,8 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "attribute.repository" = "assertion.repository"
   }
 
-  # REPLACE your current attribute_condition line with this:
-  attribute_condition = "assertion.repository_owner == 'leonardodicaterina'"
+  # Use the exact lowercase repository string that GitHub asserts
+  attribute_condition = "assertion.repository == 'leonardodicaterina/taxi-tips-mlops-dev'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
@@ -126,7 +126,6 @@ resource "google_service_account_iam_member" "github_impersonation" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/leonardodicaterina/taxi-tips-mlops-dev"
 }
-
 # 12. Outputs we will need for our GitHub Actions YAML file later
 output "github_service_account_email" {
   value = google_service_account.github_actions.email
