@@ -21,7 +21,7 @@ jobs:
         with:
           workload_identity_provider: 'projects/498336110354/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
           service_account: 'github-deployer-sa@taxi-tips-mlops-dev.iam.gserviceaccount.com'
-          audience: 'google.subject'
+          audience: '//iam.googleapis.com/projects/498336110354/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider'
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
