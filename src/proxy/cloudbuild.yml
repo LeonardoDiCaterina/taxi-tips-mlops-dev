@@ -1,0 +1,20 @@
+steps:
+  # 1. Build the Docker Image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'europe-west1-docker.pkg.dev/$PROJECT_ID/mlops-docker-repo/hello-api:latest', '.']
+
+  # 2. Push the Image to our Terraform-managed Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'europe-west1-docker.pkg.dev/$PROJECT_ID/mlops-docker-repo/hello-api:latest']
+
+  # 3. Deploy the new image to our Terraform-managed Cloud Run service
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'taxi-tips-api-dev'
+      - '--image'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/mlops-docker-repo/hello-api:latest'
+      - '--region'
+      - 'europe-west1'
