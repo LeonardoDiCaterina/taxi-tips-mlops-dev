@@ -132,3 +132,17 @@ resource "google_service_account_iam_member" "sa_token_creator" {
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/LeonardoDiCaterina/taxi-tips-mlops-dev"
 }
+
+# 13. Grant Cloud Build Editor to the Service Account
+resource "google_project_iam_member" "sa_cloud_build_editor" {
+  project = "taxi-tips-mlops-dev"
+  role    = "roles/cloudbuild.builds.editor"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+# 14. Grant Storage Object Admin (to manage the build bucket)
+resource "google_project_iam_member" "sa_storage_admin" {
+  project = "taxi-tips-mlops-dev"
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
