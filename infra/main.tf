@@ -114,7 +114,8 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "attribute.repository" = "assertion.repository"
   }
 
-  attribute_condition = "assertion.repository == \"${var.github_repo}\""
+  # Use a broader condition to verify if it's the repo name causing the issue
+  attribute_condition = "assertion.repository_owner == 'leonardodicaterina'"
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
