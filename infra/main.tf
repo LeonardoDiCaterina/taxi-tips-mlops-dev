@@ -128,11 +128,12 @@ resource "google_service_account_iam_member" "github_impersonation" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/leonardodicaterina/taxi-tips-mlops-dev"
 }
-# 12. Outputs we will need for our GitHub Actions YAML file later
-output "github_service_account_email" {
-  value = google_service_account.github_actions.email
+# 12. Grant the Service Account the ability to impersonate itself for token creation
+resource "google_service_account_iam_member" "sa_token_creator" {
+  service_account_id = google_service_account.github_actions.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.github_actions.email}"
 }
-
 output "workload_identity_provider_name" {
   value = google_iam_workload_identity_pool_provider.github_provider.name
 }
