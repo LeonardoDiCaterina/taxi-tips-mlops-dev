@@ -65,3 +65,72 @@ resource "google_cloud_run_v2_service_iam_member" "public_access" {
 output "api_url" {
   value = google_cloud_run_v2_service.api_service.uri
 }
+
+# ------------------------------------------------------------------------------
+# PHASE C: WORKLOAD IDENTITY FEDERATION (WIF) & CI/CD SETUP
+# ------------------------------------------------------------------------------
+
+# 7. Create a dedicated Service Account for GitHub Actions
+resource "google_service_account" "github_actions" {
+  account_id   = "github-deployer-sa"
+  display_name = "GitHub Actions Deployer"
+}
+
+# 8. Grant the Service Account the permissions it needs to deploy
+resource "google_project_iam_member" "sa_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+resource "google_project_iam_member" "sa_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+resource "google_project_iam_member" "sa_ar_writer" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+# 9. Create the Workload Identity Pool
+resource "google_iam_workload_identity_pool" "github_pool" {
+  workload_identity_pool_id = "github-actions-pool"
+  display_name              = "GitHub Actions Pool"
+  description               = "Identity pool for automated GitHub deployments"
+}
+
+# 10. Create the Workload Identity Provider (Trusting GitHub)
+resource "google_iam_workload_identity_pool_provider" "github_provider" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-actions-provider"
+  display_name                       = "GitHub Actions Provider"
+
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.actor"      = "assertion.actor"
+    "attribute.repository" = "assertion.repository"
+  }
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+# 11. Allow the specific GitHub repository to impersonate the Service Account
+resource "google_service_account_iam_member" "github_impersonation" {
+  service_account_id = google_service_account.github_actions.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}"
+}
+
+# 12. Outputs we will need for our GitHub Actions YAML file later
+output "github_service_account_email" {
+  value = google_service_account.github_actions.email
+}
+
+output "workload_identity_provider_name" {
+  value = google_iam_workload_identity_pool_provider.github_provider.name
+}

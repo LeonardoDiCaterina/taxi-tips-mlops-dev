@@ -39,3 +39,9 @@ variable "cpu_limit" {
   type        = string
   default     = "1"
 }
+
+variable "github_repo" {
+  description = "The GitHub repository in the format owner/repo"
+  type        = string
+  default     = "leonardodicaterina/taxi-tips-mlops-dev"
+}
