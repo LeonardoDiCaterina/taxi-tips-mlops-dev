@@ -1,4 +1,4 @@
-name: Deploy to Google Cloud Run
+name: Deploy
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
       id-token: 'write'
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
@@ -25,13 +25,18 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Configure Docker to use Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev
+
       - name: Build and Push Docker Image
-        run: |
-          gcloud builds submit --tag europe-west1-docker.pkg.dev/taxi-tips-mlops-dev/mlops-docker-repo/taxi-tips-api:latest src/proxy/
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/proxy
+          push: true
+          tags: europe-west1-docker.pkg.dev/taxi-tips-mlops-dev/mlops-docker-repo/taxi-tips-api:latest
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy taxi-tips-api-dev \
+          gcloud run services update taxi-tips-api-dev \
             --image europe-west1-docker.pkg.dev/taxi-tips-mlops-dev/mlops-docker-repo/taxi-tips-api:latest \
-            --region europe-west1 \
-            --allow-unauthenticated
+            --region europe-west1
