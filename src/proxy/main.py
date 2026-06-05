@@ -15,7 +15,7 @@ class TripData(BaseModel):
     
 @app.get("/")
 def read_root():
-    return {"message": "Taxi Tip Prediction API is live!"}
+    return {"message": "Taxi Tip Prediction API is live! and deployed on Cloud Run."}
 
 @app.post("/predict")
 def predict_tip(trip: TripData):
