@@ -146,3 +146,10 @@ resource "google_project_iam_member" "sa_storage_admin" {
   role    = "roles/storage.objectAdmin"
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 }
+
+# 15. Grant Service Usage Consumer role (Required to use APIs like Cloud Build)
+resource "google_project_iam_member" "sa_service_usage" {
+  project = "taxi-tips-mlops-dev"
+  role    = "roles/serviceusage.serviceUsageConsumer"
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
