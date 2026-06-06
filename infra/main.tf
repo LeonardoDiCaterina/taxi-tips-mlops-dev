@@ -1,67 +1,71 @@
-import os
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from google.cloud import aiplatform
+terraform {
+  # --- RESTORED: GCS Backend ---
+  backend "gcs" {
+    bucket = "YOUR_GCS_BUCKET_NAME" # <-- Replace this with your actual state bucket name from Phase B2!
+    prefix = "terraform/state"
+  }
+  
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+}
 
-app = FastAPI()
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
 
-PROJECT_ID = os.environ.get("PROJECT_ID", "taxi-tips-mlops-dev")
-REGION = os.environ.get("REGION", "europe-west1")
+# 1. Artifact Registry for our Docker images
+resource "google_artifact_registry_repository" "docker_repo" {
+  location      = var.region
+  repository_id = "mlops-docker-repo"
+  description   = "Docker repository for MLOps project managed by Terraform"
+  format        = "DOCKER"
+}
 
-# Global variable to cache the endpoint so we don't look it up every time
-_vertex_endpoint = None
+# ----------------------------------------------------------------------
+# UPDATED PHASE D6: Cloud Run Service
+# ----------------------------------------------------------------------
 
-class TripData(BaseModel):
-    trip_distance: float
-    fare_amount: float
-    duration_min: float
+# 2. Deploy the FastAPI Cloud Run Service
+resource "google_cloud_run_v2_service" "api_service" {
+  name     = "${var.service_name}-${var.env}"
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
-@app.get("/")
-def read_root():
-    return {"message": "Taxi Tip Proxy API is live and ready to connect to Vertex AI!"}
+  template {
+    # Attach the new service account so the app can securely talk to Vertex
+    # (This account is defined over in iam.tf)
+    service_account = google_service_account.api_sa.email
 
-def get_vertex_endpoint():
-    """Lazily connects to Vertex AI only when needed."""
-    global _vertex_endpoint
-    if _vertex_endpoint is None:
-        print("Initializing Vertex AI SDK...")
-        aiplatform.init(project=PROJECT_ID, location=REGION)
-        
-        print("Searching for Endpoint...")
-        endpoints = aiplatform.Endpoint.list(filter='display_name="taxi-tip-endpoint"')
-        if not endpoints:
-            raise RuntimeError("Vertex AI Endpoint 'taxi-tip-endpoint' not found. Is it deployed?")
-        
-        _vertex_endpoint = endpoints[0]
-        print(f"Connected to Endpoint ID: {_vertex_endpoint.name}")
-        
-    return _vertex_endpoint
+    containers {
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/mlops-docker-repo/taxi-tips-api:latest"
+      
+      # Inject project and region as environment variables for main.py
+      env {
+        name  = "PROJECT_ID"
+        value = var.project_id
+      }
+      env {
+        name  = "REGION"
+        value = var.region
+      }
 
-@app.post("/predict")
-def predict_tip(trip: TripData):
-    try:
-        # 1. Connect to Vertex (only happens once on the first request)
-        endpoint = get_vertex_endpoint()
-        
-        # 2. Format the payload
-        instances = [{
-            "trip_distance": trip.trip_distance,
-            "fare_amount": trip.fare_amount,
-            "duration_min": trip.duration_min
-        }]
-        
-        # 3. Get prediction
-        response = endpoint.predict(instances=instances)
-        
-        return {
-            "source": "Vertex AI Model Registry",
-            "predicted_tip": response.predictions[0]
-        }
-    except Exception as e:
-        # If something fails, return the exact error cleanly instead of crashing
-        raise HTTPException(status_code=500, detail=str(e))
+      ports {
+        container_port = 8080
+      }
+    }
+  }
+}
 
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+# 3. Make the Cloud Run URL publicly accessible over the internet
+resource "google_cloud_run_service_iam_member" "public_access" {
+  location = google_cloud_run_v2_service.api_service.location
+  project  = google_cloud_run_v2_service.api_service.project
+  service  = google_cloud_run_v2_service.api_service.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
