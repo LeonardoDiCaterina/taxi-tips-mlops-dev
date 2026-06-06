@@ -1,7 +1,7 @@
 terraform {
   # --- RESTORED: GCS Backend ---
   backend "gcs" {
-    bucket = "YOUR_GCS_BUCKET_NAME" # <-- Replace this with your actual state bucket name from Phase B2!
+    bucket = "taxi-tips-mlops-tf-state-taxi-tips-mlops-dev"
     prefix = "terraform/state"
   }
   
