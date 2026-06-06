@@ -8,12 +8,14 @@ terraform {
   }
 
   backend "gcs" {
+    # Note: State bucket names must be hardcoded in the backend block 
+    # because variables aren't loaded yet when Terraform initializes.
     bucket = "taxi-tips-mlops-tf-state-taxi-tips-mlops-dev" 
     prefix = "terraform/state"
   }
 }
 
-# 2. Configure the Google Cloud provider
+# 2. Configure the Google Cloud provider using variables!
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -28,7 +30,6 @@ resource "google_artifact_registry_repository" "docker_repo" {
 }
 
 # 4. Deploy the FastAPI Cloud Run Service
-# Using ':latest' prevents "Image not found" errors during terraform apply
 resource "google_cloud_run_v2_service" "api_service" {
   name     = "${var.service_name}-${var.env}"
   location = var.region
@@ -36,6 +37,7 @@ resource "google_cloud_run_v2_service" "api_service" {
 
   template {
     containers {
+      # Updated the image path to match Artifact Registry and point to latest
       image = "${var.region}-docker.pkg.dev/${var.project_id}/mlops-docker-repo/taxi-tips-api:latest"
       
       resources {
@@ -59,57 +61,78 @@ resource "google_cloud_run_v2_service_iam_member" "public_access" {
   member   = "allUsers"
 }
 
-# 6. Output the final URL
+# 6. Output the final URL so we can click it
 output "api_url" {
   value = google_cloud_run_v2_service.api_service.uri
 }
 
-# 7-13. Identity and IAM Setup
+# ------------------------------------------------------------------------------
+# PHASE C: WORKLOAD IDENTITY FEDERATION (WIF) & CI/CD SETUP
+# ------------------------------------------------------------------------------
+
+# 7. Create a dedicated Service Account for GitHub Actions
 resource "google_service_account" "github_actions" {
   account_id   = "github-deployer-sa"
   display_name = "GitHub Actions Deployer"
 }
 
+# 8. Grant the Service Account the permissions it needs to deploy
+resource "google_project_iam_member" "sa_permissions" {
+  for_each = toset([
+    "roles/run.admin",
+    "roles/iam.serviceAccountUser",
+    "roles/artifactregistry.writer"
+  ])
+  project = var.project_id
+  role    = each.key
+  member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+# 9. Create the Workload Identity Pool
 resource "google_iam_workload_identity_pool" "github_pool" {
   workload_identity_pool_id = "github-actions-pool"
   display_name              = "GitHub Actions Pool"
+  description               = "Identity pool for automated GitHub deployments"
 }
 
+# 10. Create the Workload Identity Provider (Trusting GitHub)
 resource "google_iam_workload_identity_pool_provider" "github_provider" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
   workload_identity_pool_provider_id = "github-actions-provider"
+  display_name                       = "GitHub Actions Provider"
+
   attribute_mapping = {
     "google.subject"       = "assertion.sub"
     "attribute.actor"      = "assertion.actor"
     "attribute.repository" = "assertion.repository"
   }
-  attribute_condition = "assertion.sub != ''"
+
+  attribute_condition = "assertion.repository == \"${var.github_repo}\""
+
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
 }
 
+# 11. Allow the specific GitHub repository to impersonate the Service Account
 resource "google_service_account_iam_member" "github_impersonation" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/LeonardoDiCaterina/taxi-tips-mlops-dev"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}"
 }
 
+# 12. Allow the GitHub repository to mint access tokens
 resource "google_service_account_iam_member" "sa_token_creator" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/LeonardoDiCaterina/taxi-tips-mlops-dev"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}"
 }
 
-resource "google_project_iam_member" "sa_permissions" {
-  for_each = toset([
-    "roles/cloudbuild.builds.editor",
-    "roles/storage.objectAdmin",
-    "roles/serviceusage.serviceUsageConsumer",
-    "roles/run.admin",
-    "roles/iam.serviceAccountUser"
-  ])
-  project = var.project_id
-  role    = each.key
-  member  = "serviceAccount:${google_service_account.github_actions.email}"
+# 13. Outputs we will need for our GitHub Actions YAML file later
+output "github_service_account_email" {
+  value = google_service_account.github_actions.email
+}
+
+output "workload_identity_provider_name" {
+  value = google_iam_workload_identity_pool_provider.github_provider.name
 }
