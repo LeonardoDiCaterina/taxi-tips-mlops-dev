@@ -28,28 +28,36 @@ class TripData(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"message": "Taxi Tip Proxy API is live and connected to Vertex AI and BigQuery!"}
+    return {"message": "Taxi Tip Proxy API is live and connected to Vertex AI and BigQuery and hopefully robustly handling data validation and errors!"}
 
 @app.post("/predict")
 def predict_tip(trip: TripData):
     try:
-        # Vertex AI (for BQML XGBoost models) expects instances as a list of dictionaries
-        instances = [{
-            "trip_distance": trip.trip_distance,
-            "fare_amount": trip.fare_amount,
-            "duration_min": trip.duration_min
-        }]
+        # 1. Define the exact feature order the XGBoost model was TRAINED on.
+        # This acts as an anchor. Even if the Pydantic model changes, this protects the ML model.
+        EXPECTED_FEATURES = ["trip_distance", "fare_amount", "duration_min"]
+        
+        # 2. Convert the incoming Pydantic object to a standard Python dictionary
+        # (Since you are using pydantic==2.10.4, model_dump() is the correct method)
+        trip_dict = trip.model_dump()
+        
+        # 3. Dynamically build the 2D array. 
+        # This guarantees the list is built in the exact order of EXPECTED_FEATURES.
+        instances = [[trip_dict[feature] for feature in EXPECTED_FEATURES]]
         
         # Forward the request over the network to Vertex AI
         response = endpoint.predict(instances=instances)
         
-        # Extract the prediction result from Vertex AI's response format
+        # Extract the prediction result
         prediction_result = response.predictions[0]
         
         return {
             "source": "Vertex AI Model Registry",
             "prediction_raw": prediction_result
         }
+    except KeyError as e:
+        # Catch if a required feature is somehow missing from the dictionary
+        raise HTTPException(status_code=400, detail=f"Missing required feature for prediction: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
