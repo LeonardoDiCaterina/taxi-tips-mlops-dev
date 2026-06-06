@@ -10,3 +10,17 @@ resource "google_project_iam_member" "api_vertex_user" {
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.api_sa.email}"
 }
+
+# 3. Grant the API Service Account permission to run BigQuery jobs
+resource "google_project_iam_member" "api_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.api_sa.email}"
+}
+
+# 4. Grant the API Service Account permission to read BigQuery data/models
+resource "google_project_iam_member" "api_bq_data_viewer" {
+  project = var.project_id
+  role    = "roles/bigquery.dataViewer"
+  member  = "serviceAccount:${google_service_account.api_sa.email}"
+}
