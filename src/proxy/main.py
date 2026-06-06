@@ -28,7 +28,7 @@ class TripData(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"message": "Taxi Tip Proxy API is live and connected to Vertex AI!"}
+    return {"message": "Taxi Tip Proxy API is live and connected to Vertex AI and BigQuery!"}
 
 @app.post("/predict")
 def predict_tip(trip: TripData):
