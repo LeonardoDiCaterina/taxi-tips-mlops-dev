@@ -34,11 +34,15 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
   workload_identity_pool_provider_id = "github-actions-provider-v2"
   display_name                       = "GitHub Actions Provider v2"
 
+  # ADD THIS LINE: It securely locks authentication to your specific GitHub repo
+  attribute_condition = "assertion.repository == '${var.github_repo}'"
+
   attribute_mapping = {
     "google.subject"       = "assertion.sub"
     "attribute.actor"      = "assertion.actor"
     "attribute.repository" = "assertion.repository"
   }
+  
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
@@ -94,9 +98,14 @@ resource "google_cloud_run_v2_service" "api_service" {
   location = var.region
   ingress  = "INGRESS_TRAFFIC_ALL"
 
+  # Add this block to prevent Terraform from fighting your CI/CD
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image,
+    ]
+  }
+
   template {
-    # Attach the new service account so the app can securely talk to Vertex
-    # (This account is defined over in iam.tf)
     service_account = google_service_account.api_sa.email
 
     containers {
