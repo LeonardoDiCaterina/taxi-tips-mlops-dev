@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from google.cloud import aiplatform
+from google.cloud import bigquery
 
 app = FastAPI()
 
@@ -60,6 +61,39 @@ def predict_tip(trip: TripData):
         raise HTTPException(status_code=400, detail=f"Missing required feature for prediction: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+# Initialize the BigQuery client (place this near your aiplatform.init)
+bq_client = bigquery.Client(project=PROJECT_ID)
+
+@app.get("/metrics")
+def get_model_metrics():
+    try:
+        # Your exact baseline evaluation query
+        query = """
+        SELECT 'holdout' AS dataset_type, * FROM ML.EVALUATE(
+          MODEL `taxi-tips-mlops-dev.ml_data.tip_prediction_xgboost`,
+          (SELECT trip_distance, fare_amount, duration_min, tip_amount
+           FROM `taxi-tips-mlops-dev.ml_data.holdout_data`)
+        )
+        UNION ALL
+        SELECT 'training' AS dataset_type, * FROM ML.EVALUATE(
+          MODEL `taxi-tips-mlops-dev.ml_data.tip_prediction_xgboost`,
+          (SELECT trip_distance, fare_amount, duration_min, tip_amount
+           FROM `taxi-tips-mlops-dev.ml_data.training_data`)
+        );
+        """
+        
+        query_job = bq_client.query(query)
+        results = query_job.result()
+        
+        # Format the BigQuery rows into a list of dictionaries
+        metrics_data = [dict(row) for row in results]
+        
+        return {"status": "success", "data": metrics_data}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"BigQuery Error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
