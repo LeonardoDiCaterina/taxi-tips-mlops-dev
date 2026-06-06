@@ -107,7 +107,8 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
     "attribute.repository" = "assertion.repository"
   }
 
-  attribute_condition = "assertion.repository == \"${var.github_repo}\""
+  # Hardcoded the exact case-sensitive repository string
+  attribute_condition = "assertion.repository == \"LeonardoDiCaterina/taxi-tips-mlops-dev\""
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
@@ -118,14 +119,16 @@ resource "google_iam_workload_identity_pool_provider" "github_provider" {
 resource "google_service_account_iam_member" "github_impersonation" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}"
+  # Hardcoded the exact case-sensitive repository string
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/LeonardoDiCaterina/taxi-tips-mlops-dev"
 }
 
 # 12. Allow the GitHub repository to mint access tokens
 resource "google_service_account_iam_member" "sa_token_creator" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.serviceAccountTokenCreator"
-  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${var.github_repo}"
+  # Hardcoded the exact case-sensitive repository string
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/LeonardoDiCaterina/taxi-tips-mlops-dev"
 }
 
 # 13. Outputs we will need for our GitHub Actions YAML file later
