@@ -24,15 +24,15 @@ provider "google" {
 
 # 1. WIF Pool
 resource "google_iam_workload_identity_pool" "github_pool" {
-  workload_identity_pool_id = "github-actions-pool"
-  display_name              = "GitHub Actions Pool"
+  workload_identity_pool_id = "github-actions-pool-v2"
+  display_name              = "GitHub Actions Pool v2"
 }
 
 # 2. WIF Provider
 resource "google_iam_workload_identity_pool_provider" "github_provider" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
-  workload_identity_pool_provider_id = "github-actions-provider"
-  display_name                       = "GitHub Actions Provider"
+  workload_identity_pool_provider_id = "github-actions-provider-v2"
+  display_name                       = "GitHub Actions Provider v2"
 
   attribute_mapping = {
     "google.subject"       = "assertion.sub"
